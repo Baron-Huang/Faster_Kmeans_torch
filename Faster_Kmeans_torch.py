@@ -11,7 +11,7 @@ torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
 class Faster_Kmeans_torch():
-    def __init__(self, k_nums = 3, sel_dis = 'l1', train_iters = 100, p = 1):
+    def __init__(self, k_nums = 3, sel_dis = 'lp', train_iters = 100, p = 1):
         super(Faster_Kmeans_torch, self).__init__()
         self.k_nums = k_nums
         self.sel_dis = sel_dis
@@ -84,10 +84,21 @@ class Faster_Kmeans_torch():
         for i in range(init_cluster_cen.shape[0]):
             assigned_set[str(i)] = []
             x_y = x - init_cluster_cen[i].expand(x.shape[0], -1)
-            x_y_2 = x_y ** 2
-            xxx = torch.sum(x_y_2, dim=1)
-            xxx_sqrt = torch.sqrt(xxx)
-            xxx_sqrt = xxx_sqrt.reshape(xxx.shape[0], 1)
+            if self.sel_dis == 'l2':
+                x_y_2 = x_y ** 2
+                xxx = torch.sum(x_y_2, dim=1)
+                xxx_sqrt = torch.sqrt(xxx)
+            elif self.sel_dis == 'l1':
+                x_y_abs = torch.abs(x_y)
+                xxx_sqrt = torch.sum(x_y_abs, dim=1)
+            elif self.sel_dis == 'lmax':
+                x_y_abs = torch.abs(x_y)
+                xxx_sqrt = torch.max(x_y_abs, dim=1)[0]
+            elif self.sel_dis == 'lp':
+                x_y_p = x_y ** self.p
+                xxx = torch.sum(x_y_p, dim=1)
+                xxx_sqrt = xxx ** (1/self.p)
+            xxx_sqrt = xxx_sqrt.reshape(x.shape[0], 1)
             init_cluster_order_matrix = torch.cat((init_cluster_order_matrix, xxx_sqrt), dim=1)
         init_cluster_order_matrix = init_cluster_order_matrix[:, 1:]
         init_cluster_order = torch.argmin(init_cluster_order_matrix, dim=1)
@@ -212,7 +223,7 @@ if __name__ == '__main__':
     new_c = upgrade_cluster_centre(iris_feature, s)
     print(new_c)
 
-    kmenas_model = Faster_Kmeans_torch(k_nums=3, sel_dis='l1', p = 100)
+    kmenas_model = Faster_Kmeans_torch(k_nums=3, sel_dis='lp', p = 5)
     iris_feature[:, 0] = (iris_feature[:, 0] - torch.mean(iris_feature[:, 0]))\
                          / torch.std(iris_feature[:, 0])
     iris_feature[:, 1] = (iris_feature[:, 1] - torch.mean(iris_feature[:, 1])) \
